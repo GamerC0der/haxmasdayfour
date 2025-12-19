@@ -5,4 +5,5 @@ export const wishes = sqliteTable("wishes", {
   item: text("item").notNull(),
   fulfilled: integer("fulfilled").notNull().default(0),
   createdAt: integer("created_at").notNull(),
+  username: text("username").notNull(),
 })

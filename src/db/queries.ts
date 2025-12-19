@@ -6,13 +6,14 @@ export function listWishes() {
   return db.select().from(wishes).orderBy(desc(wishes.id)).all()
 }
 
-export function createWish(item: string) {
+export function createWish(item: string, username: string) {
   const createdAt = Math.floor(Date.now() / 1000)
 
   const res = db.insert(wishes).values({
     item,
     fulfilled: 0,
     createdAt,
+    username,
   }).run()
 
   return { id: Number(res.lastInsertRowid) }
