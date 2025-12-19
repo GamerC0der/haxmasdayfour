@@ -76,7 +76,7 @@ app.get("/", (c) => {
       wishesEl.innerHTML = data.wishes.map(w => \`<li class="\${w.fulfilled ? 'fulfilled' : ''}">
         <div>\${w.item}<br><small>\${w.username}</small></div>
         <div class="buttons">
-          <button onclick="fulfill(\${w.id})">✓</button>
+          <button onclick="fulfill(\${w.id})">\${w.fulfilled ? '✗' : '✓'}</button>
           <button onclick="del(\${w.id})" style="float:right">×</button>
         </div>
       </li>\`).join('');
@@ -122,7 +122,7 @@ app.get("/", (c) => {
       if (isTemp) li.style.opacity = '0.6';
       li.innerHTML = \`<div>\${wish.item}<br><small>\${wish.username}</small></div>
         <div class="buttons">
-          <button onclick="fulfill(\${wish.id})">✓</button>
+          <button onclick="fulfill(\${wish.id})">\${wish.fulfilled ? '✗' : '✓'}</button>
           <button onclick="del(\${wish.id})" style="float:right">×</button>
         </div>\`;
       const firstWish = wishesEl.querySelector('li');
@@ -140,13 +140,24 @@ app.get("/", (c) => {
 
     async function fulfill(id) {
       const wishEl = document.getElementById(\`wish-\${id}\`);
-      if (wishEl) wishEl.classList.add('fulfilled');
+      const wasFulfilled = wishEl?.classList.contains('fulfilled');
+
+      if (wishEl) {
+        wishEl.classList.toggle('fulfilled');
+        const button = wishEl.querySelector('button[onclick*="fulfill"]');
+        if (button) button.textContent = wasFulfilled ? '✓' : '✗';
+      }
+
       try {
         await fetch(\`/api/wishes/\${id}/fulfill\`, { method: 'PATCH' });
         loadWishes(currentPage);
       } catch (error) {
-        if (wishEl) wishEl.classList.remove('fulfilled');
-        alert('Failed to fulfill wish');
+        if (wishEl) {
+          wishEl.classList.toggle('fulfilled');
+          const button = wishEl.querySelector('button[onclick*="fulfill"]');
+          if (button) button.textContent = wasFulfilled ? '✗' : '✓';
+        }
+        alert('Failed to update wish');
       }
     }
 

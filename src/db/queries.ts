@@ -21,8 +21,16 @@ export function createWish(item: string, username: string) {
 }
 
 export function fulfillWish(id: number) {
+  const currentWish = db.select({ fulfilled: wishes.fulfilled }).from(wishes).where(eq(wishes.id, id)).get()
+
+  if (!currentWish) {
+    return { changes: 0 }
+  }
+
+  const newFulfilled = currentWish.fulfilled === 1 ? 0 : 1
+
   const res = db.update(wishes)
-    .set({ fulfilled: 1 })
+    .set({ fulfilled: newFulfilled })
     .where(eq(wishes.id, id))
     .run()
 
