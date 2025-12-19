@@ -32,13 +32,22 @@ app.get("/", (c) => {
       <p id="errorMsg" style="color: red; margin: 10px 0 0; display: none;">Please enter a username</p>
     </div>
   </div>
+  <div id="deleteModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Delete this wish?</h3>
+      <button onclick="confirmDelete()">Delete</button>
+      <button onclick="cancelDelete()">Cancel</button>
+    </div>
+  </div>
   <script>
     let username = localStorage.getItem('username');
     const modal = document.getElementById('modal');
+    const deleteModal = document.getElementById('deleteModal');
     const wishesEl = document.getElementById('wishes');
     const form = document.getElementById('addForm');
     const input = document.getElementById('newWish');
     const usernameInput = document.getElementById('username');
+    let wishToDelete = null;
 
     usernameInput.oninput = () => document.getElementById('errorMsg').style.display = 'none';
 
@@ -78,7 +87,25 @@ app.get("/", (c) => {
     };
 
     async function fulfill(id) { await fetch(\`/api/wishes/\${id}/fulfill\`, { method: 'PATCH' }); loadWishes(); }
-    async function del(id) { await fetch(\`/api/wishes/\${id}\`, { method: 'DELETE' }); loadWishes(); }
+
+    function del(id) {
+      wishToDelete = id;
+      deleteModal.classList.remove('hidden');
+    }
+
+    async function confirmDelete() {
+      if (wishToDelete) {
+        await fetch(\`/api/wishes/\${wishToDelete}\`, { method: 'DELETE' });
+        loadWishes();
+      }
+      deleteModal.classList.add('hidden');
+      wishToDelete = null;
+    }
+
+    function cancelDelete() {
+      deleteModal.classList.add('hidden');
+      wishToDelete = null;
+    }
 
     if (username) loadWishes();
   </script>
