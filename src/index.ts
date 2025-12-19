@@ -29,6 +29,7 @@ app.get("/", (c) => {
       <h3>Enter your username</h3>
       <input id="username" placeholder="Username" required>
       <button onclick="setUsername()">Continue</button>
+      <p id="errorMsg" style="color: red; margin: 10px 0 0; display: none;">Please enter a username</p>
     </div>
   </div>
   <script>
@@ -37,6 +38,9 @@ app.get("/", (c) => {
     const wishesEl = document.getElementById('wishes');
     const form = document.getElementById('addForm');
     const input = document.getElementById('newWish');
+    const usernameInput = document.getElementById('username');
+
+    usernameInput.oninput = () => document.getElementById('errorMsg').style.display = 'none';
 
     if (!username) {
       modal.classList.remove('hidden');
@@ -48,6 +52,8 @@ app.get("/", (c) => {
         localStorage.setItem('username', username);
         modal.classList.add('hidden');
         loadWishes();
+      } else {
+        document.getElementById('errorMsg').style.display = 'block';
       }
     }
 
