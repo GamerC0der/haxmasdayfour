@@ -24,6 +24,7 @@ app.get("/", (c) => {
   <h1 style="font-size: 2.5em; padding: 20px 0;">My Wish List</h1>
   <form id="addForm"><input id="newWish" placeholder="Add a wish..." required><button>Add</button></form>
   <ul id="wishes"></ul>
+  <div id="pagination" style="margin: 20px 0;"></div>
   <div id="modal" class="modal">
     <div class="modal-content">
       <h3>Enter your username</h3>
@@ -44,10 +45,12 @@ app.get("/", (c) => {
     const modal = document.getElementById('modal');
     const deleteModal = document.getElementById('deleteModal');
     const wishesEl = document.getElementById('wishes');
+    const paginationEl = document.getElementById('pagination');
     const form = document.getElementById('addForm');
     const input = document.getElementById('newWish');
     const usernameInput = document.getElementById('username');
     let wishToDelete = null;
+    let currentPage = 1;
 
     usernameInput.oninput = () => document.getElementById('errorMsg').style.display = 'none';
 
@@ -66,27 +69,86 @@ app.get("/", (c) => {
       }
     }
 
-    async function loadWishes() {
-      const res = await fetch('/api/wishes');
-      const wishes = await res.json();
-      wishesEl.innerHTML = wishes.map(w => \`<li class="\${w.fulfilled ? 'fulfilled' : ''}">
+    async function loadWishes(page = 1) {
+      currentPage = page;
+      const res = await fetch(\`/api/wishes?page=\${page}\`);
+      const data = await res.json();
+      wishesEl.innerHTML = data.wishes.map(w => \`<li class="\${w.fulfilled ? 'fulfilled' : ''}">
         <div>\${w.item}<br><small>\${w.username}</small></div>
         <div class="buttons">
           <button onclick="fulfill(\${w.id})">✓</button>
           <button onclick="del(\${w.id})" style="float:right">×</button>
         </div>
       </li>\`).join('');
+      renderPagination(data.totalPages, page);
+    }
+
+    function renderPagination(totalPages, currentPage) {
+      if (totalPages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+      }
+      let buttons = [];
+      if (currentPage > 1) buttons.push(\`<button onclick="loadWishes(\${currentPage - 1})">←</button>\`);
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(\`<button onclick="loadWishes(\${i})" \${i === currentPage ? 'disabled' : ''}>\${i}</button>\`);
+      }
+      if (currentPage < totalPages) buttons.push(\`<button onclick="loadWishes(\${currentPage + 1})">→</button>\`);
+      paginationEl.innerHTML = buttons.join(' ');
     }
 
     form.onsubmit = async e => {
       e.preventDefault();
       if (!username) return;
-      await fetch('/api/wishes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({item: input.value, username}) });
+      const itemText = input.value.trim();
+      if (!itemText) return;
       input.value = '';
-      loadWishes();
+      const tempId = Date.now();
+      const tempWish = { id: tempId, item: itemText, username, fulfilled: 0 };
+      addWishToUI(tempWish, true);
+      try {
+        await fetch('/api/wishes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({item: itemText, username}) });
+        loadWishes(currentPage);
+      } catch (error) {
+        removeWishFromUI(tempId);
+        alert('Failed to add wish');
+      }
     };
 
-    async function fulfill(id) { await fetch(\`/api/wishes/\${id}/fulfill\`, { method: 'PATCH' }); loadWishes(); }
+    function addWishToUI(wish, isTemp = false) {
+      const li = document.createElement('li');
+      li.className = wish.fulfilled ? 'fulfilled' : '';
+      li.id = \`wish-\${wish.id}\`;
+      if (isTemp) li.style.opacity = '0.6';
+      li.innerHTML = \`<div>\${wish.item}<br><small>\${wish.username}</small></div>
+        <div class="buttons">
+          <button onclick="fulfill(\${wish.id})">✓</button>
+          <button onclick="del(\${wish.id})" style="float:right">×</button>
+        </div>\`;
+      const firstWish = wishesEl.querySelector('li');
+      if (firstWish) {
+        wishesEl.insertBefore(li, firstWish);
+      } else {
+        wishesEl.appendChild(li);
+      }
+    }
+
+    function removeWishFromUI(id) {
+      const wishEl = document.getElementById(\`wish-\${id}\`);
+      if (wishEl) wishEl.remove();
+    }
+
+    async function fulfill(id) {
+      const wishEl = document.getElementById(\`wish-\${id}\`);
+      if (wishEl) wishEl.classList.add('fulfilled');
+      try {
+        await fetch(\`/api/wishes/\${id}/fulfill\`, { method: 'PATCH' });
+        loadWishes(currentPage);
+      } catch (error) {
+        if (wishEl) wishEl.classList.remove('fulfilled');
+        alert('Failed to fulfill wish');
+      }
+    }
 
     function del(id) {
       wishToDelete = id;
@@ -95,8 +157,15 @@ app.get("/", (c) => {
 
     async function confirmDelete() {
       if (wishToDelete) {
-        await fetch(\`/api/wishes/\${wishToDelete}\`, { method: 'DELETE' });
-        loadWishes();
+        const wishEl = document.getElementById(\`wish-\${wishToDelete}\`);
+        if (wishEl) wishEl.style.opacity = '0.3';
+        try {
+          await fetch(\`/api/wishes/\${wishToDelete}\`, { method: 'DELETE' });
+          loadWishes(currentPage);
+        } catch (error) {
+          if (wishEl) wishEl.style.opacity = '1';
+          alert('Failed to delete wish');
+        }
       }
       deleteModal.classList.add('hidden');
       wishToDelete = null;
@@ -114,7 +183,14 @@ app.get("/", (c) => {
   return c.html(html)
 })
 
-app.get("/api/wishes", (c) => c.json(listWishes()))
+app.get("/api/wishes", (c) => {
+  const page = Number(c.req.query("page") || "1")
+  const limit = 5
+  const wishes = listWishes(page, limit)
+  const allWishes = listWishes(1, 1000)
+  const totalPages = Math.ceil(allWishes.length / limit)
+  return c.json({ wishes, page, limit, totalPages })
+})
 
 app.post("/api/wishes", async (c) => {
   const body = await c.req.json().catch(() => null)

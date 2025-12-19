@@ -2,8 +2,9 @@ import { db } from "./index"
 import { wishes } from "./schema"
 import { eq, desc } from "drizzle-orm"
 
-export function listWishes() {
-  return db.select().from(wishes).orderBy(desc(wishes.id)).all()
+export function listWishes(page: number = 1, limit: number = 5) {
+  const offset = (page - 1) * limit
+  return db.select().from(wishes).orderBy(desc(wishes.id)).limit(limit).offset(offset).all()
 }
 
 export function createWish(item: string, username: string) {
